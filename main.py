@@ -1,6 +1,10 @@
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
 import requests
+
+# Получаем токен из переменной окружения
+TOKEN = os.getenv("TOKEN")
 
 # Список популярных валют
 popular_currencies = ["USD","EUR","UAH","GBP","JPY","CHF","CAD","AUD","CNY"]
@@ -14,8 +18,6 @@ special_currency_countries = {
 user_data = {}
 
 def country_code_to_emoji(country_code):
-    if country_code == "–":
-        return "–"
     try:
         return chr(127397 + ord(country_code[0])) + chr(127397 + ord(country_code[1]))
     except:
@@ -24,9 +26,9 @@ def country_code_to_emoji(country_code):
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Привет!\n\n"
+        "👋 Привет!\n"
         "Я — интерактивный конвертер валют.\n"
-        "Нажми /convert чтобы выбрать валюты и посчитать курс.\n"
+        "Нажми /convert чтобы начать конвертацию с кнопками.\n"
         "ℹ️ Напиши /help для подсказки."
     )
 
@@ -60,19 +62,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[user_id] = {"from": currency}
         keyboard = [[InlineKeyboardButton(f"{country_code_to_emoji(special_currency_countries.get(c, c[:2]))} {c}", callback_data=f"to_{c}")] for c in popular_currencies]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
-            f"✅ Выбрана валюта *{currency}*\nТеперь выбери валюту, куда конвертировать:",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
-        )
+        await query.edit_message_text(f"✅ Выбрана валюта *{currency}*\nТеперь выбери валюту, куда конвертировать:", reply_markup=reply_markup, parse_mode="Markdown")
 
     elif data.startswith("to_"):
         currency_to = data[3:]
         user_data[user_id]["to"] = currency_to
-        await query.edit_message_text(
-            f"✅ Выбрана валюта *{currency_to}*\n💰 Теперь напиши сумму для конвертации:",
-            parse_mode="Markdown"
-        )
+        await query.edit_message_text(f"✅ Выбрана валюта *{currency_to}*\n💰 Теперь напиши сумму для конвертации:", parse_mode="Markdown")
 
 # Обработка ввода суммы
 async def amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -106,13 +101,7 @@ async def amount_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton("🔁 Повторить", callback_data="restart")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
-        f"💱 *Результат:*\n\n"
-        f"{base_flag} {amount} {base} → {target_flag} {converted:.2f} {target}\n"
-        f"📊 *Курс:* 1 {base} = {rate:.4f} {target}",
-        parse_mode="Markdown",
-        reply_markup=reply_markup
-    )
+    await update.message.reply_text(f"💱 *Результат:*\n\n{base_flag} {amount} {base} → {target_flag} {converted:.2f} {target}\n📊 *Курс:* 1 {base} = {rate:.4f} {target}", parse_mode="Markdown", reply_markup=reply_markup)
 
     user_data.pop(user_id)
 
@@ -124,14 +113,14 @@ async def restart_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Основная функция
 def main():
-    application = ApplicationBuilder().token("8432124947:AAHLby_de2qDkOncDwdK4SOwxasYoZ9mnDY").build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("convert", convert_command))
-    application.add_handler(CallbackQueryHandler(button, pattern="^(from_|to_)"))
-    application.add_handler(CallbackQueryHandler(restart_handler, pattern="^restart$"))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, amount_handler))
-    application.run_polling()
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("convert", convert_command))
+    app.add_handler(CallbackQueryHandler(button, pattern="^(from_|to_)"))
+    app.add_handler(CallbackQueryHandler(restart_handler, pattern="^restart$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, amount_handler))
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
